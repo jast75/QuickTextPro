@@ -37,6 +37,7 @@ class KeyboardMonitor(QThread):
         self.ctrl_pressed = False
         self.listener = None
         self.keyboard_controller = Controller()
+        self.pending_expansion = False
 
     def set_shortcuts(self, shortcuts):
         """Update shortcuts dictionary"""
@@ -52,7 +53,13 @@ class KeyboardMonitor(QThread):
             return
 
         try:
-            current_time = time.time()
+           # Suppress the trigger key if expansion is pending
+            if self.pending_expansion:
+                if key in [Key.space, Key.enter, Key.tab]:
+                    self.pending_expansion = False
+                    return False  # Suppress this key
+            
+           current_time = time.time()
 
             # Reset buffer if more than 2 seconds between keystrokes
             if current_time - self.last_key_time > 2:
@@ -83,11 +90,15 @@ class KeyboardMonitor(QThread):
                 if hasattr(key, 'char') and key.char:
                     self.buffer += key.char
                 elif key in [Key.space, Key.enter, Key.tab]:
-                    self.expand_from_buffer()
+                    # Check if we should expand before the trigger key is processed
+                    if self.check_for_expansion():
+                        self.pending_expansion = True
+                        self.expand_from_buffer()
+                        return False  # Suppress the trigger key
                     self.buffer = ""
                 elif key == Key.backspace and len(self.buffer) > 0:
                     self.buffer = self.buffer[:-1]
-
+                  
         except Exception as e:
             print(f"Error in on_press: {e}")
 
@@ -95,6 +106,14 @@ class KeyboardMonitor(QThread):
         """Handle key release events"""
         if key == Key.ctrl_l or key == Key.ctrl_r:
             self.ctrl_pressed = False
+
+    def check_for_expansion(self):
+        """Check if buffer contains a keyword that should be expanded"""
+        words = self.buffer.strip().split()
+        if not words:
+            return False
+        keyword = words[-1].lower()
+        return keyword in self.shortcuts  
 
     def expand_from_buffer(self):
         """Check buffer for keywords and expand"""
