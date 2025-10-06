@@ -59,7 +59,7 @@ class KeyboardMonitor(QThread):
                     self.pending_expansion = False
                     return False  # Suppress this key
             
-           current_time = time.time()
+            current_time = time.time()
 
             # Reset buffer if more than 2 seconds between keystrokes
             if current_time - self.last_key_time > 2:
